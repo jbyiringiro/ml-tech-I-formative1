@@ -1,0 +1,72 @@
+# ============================================================================
+# Central configuration for the Mobile Network Traffic Forecasting project.
+# Every script and notebook reads paths and hyper-parameters from this file so
+# that experiments are reproducible and tunable from a single place.
+# ============================================================================
+
+paths:
+  raw_telecom:      data/raw/telecom      # daily sms-call-internet-mi-*.txt files
+  raw_grid:         data/raw/grid         # milano-grid.geojson
+  processed:        data/processed        # parquet outputs of Task 1
+  results_figures:  results/figures
+  results_tables:   results/tables
+  experiments:      experiments           # hyper-parameter experiment logs
+
+dataset:
+  grid_size:         100        # 100 x 100 regular grid -> 10,000 areas
+  interval_minutes:  10
+  intervals_per_day: 144        # 24h * 6
+  # 0-based column indices in the raw tab-separated telecom files (no header).
+  # Field order is corrected per the assignment note (country code is 3rd field).
+  col_square_id:     0
+  col_time:          1          # Unix timestamp in milliseconds
+  col_internet:      7          # Internet traffic activity (last column)
+  # The raw timestamps are UTC epoch-ms but the daily files are aligned to
+  # Central European Time (CET) local midnight. Italy is on CET (UTC+1) with no
+  # daylight saving in Nov-Dec, so a fixed +1h offset recovers local time.
+  timezone_offset_hours: 1
+
+dates:
+  study_start:           "2013-11-01"   # two-month study period start
+  study_end:             "2013-12-31"   # two-month study period end
+  first_two_weeks_start: "2013-11-01"   # Task 2.II time-series window
+  first_two_weeks_end:   "2013-11-14"
+  test_start:            "2013-12-16"   # Task 3 test week (Mon)
+  test_end:              "2013-12-22"   # Task 3 test week (Sun) -- inclusive
+
+areas:
+  highest: null            # area with highest total traffic -> computed from data
+  fixed:   [4159, 4556]    # the two fixed Square ids required by the assignment
+
+loading:
+  chunksize:        2000000  # rows per chunk when streaming large raw files
+  fillna_internet:  0.0      # missing internet activity is treated as zero
+
+forecast:
+  lookback:      12          # past 10-min intervals fed to the neural models (=2h)
+                             # grid search (run_experiments.py) found a short
+                             # lookback best for one-step-ahead prediction --
+                             # consistent with the PACF (lags 1-2 dominate).
+  val_fraction:  0.15        # fraction of the training span used for validation
+  scaler:        minmax      # minmax | standard | log-minmax
+
+sarima:
+  order:          [2, 0, 2]          # (p, d, q) for the non-seasonal ARIMA part
+  seasonal_order: [0, 1, 0, 144]     # (P, D, Q, s) -- D=1 seasonal differencing at s=144
+  train_tail_days: null              # null -> fit on all training data (fast formulation)
+  maxiter:         50                # MLE iterations cap
+
+neural:
+  units:          64
+  layers:         1
+  dropout:        0.2
+  epochs:         40
+  batch_size:     64
+  patience:       8          # early-stopping patience (epochs)
+  learning_rate:  0.001
+
+experiment:
+  lookback_grid: [12, 72, 144, 288]
+  units_grid:    [32, 64, 128]
+
+random_seed: 42

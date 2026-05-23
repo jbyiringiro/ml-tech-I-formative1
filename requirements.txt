@@ -1,0 +1,25 @@
+# Core data handling
+numpy==2.3.5
+pandas==2.3.3
+pyarrow==21.0.0          # Parquet I/O for memory-efficient columnar storage
+pyyaml==6.0.2            # config.yaml parsing
+
+# Scientific / statistics
+scipy==1.16.3
+statsmodels==0.14.5      # ADF test, seasonal decomposition, SARIMA
+scikit-learn==1.7.2      # scalers, metrics utilities
+
+# Deep learning (LSTM / GRU)
+tensorflow==2.21.0       # Keras 3 bundled
+
+# Visualisation
+matplotlib==3.10.7
+seaborn==0.13.2
+
+# Utilities / notebooks
+tqdm==4.67.1
+nbformat==5.10.4
+jupyter
+
+# NOTE: versions reflect the environment the project was developed and tested on
+# (Python 3.13.9, Windows 11). Looser pins (>=) usually also work.
