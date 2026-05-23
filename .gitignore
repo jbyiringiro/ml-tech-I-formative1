@@ -28,6 +28,11 @@ env/
 *.pkl
 models_saved/
 
+# ---- Author-only working files (not published to the public repo) ----
+report/report.md
+report/_report_for_pdf.html
+tools/export_pdf.py
+
 # ---- OS / IDE ----
 .DS_Store
 Thumbs.db
