@@ -33,8 +33,6 @@ The work is organised into three tasks:
 The objective is not only to obtain accurate forecasts but to *justify* every
 design decision with evidence from the data and from the literature.
 
----
-
 ## Task 1: Data Handling and Memory Management
 
 ### 1.1 The challenge
