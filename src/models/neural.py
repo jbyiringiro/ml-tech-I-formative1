@@ -1,28 +1,13 @@
-"""Recurrent neural forecasters -- LSTM and GRU (Task 3).
+"""LSTM and GRU forecasters (Task 3).
 
-Both neural models share one implementation, :class:`NeuralForecaster`,
-parameterised by the recurrent cell type. This keeps the architecture, training
-loop and evaluation identical so that any performance difference is
-attributable to the cell, not to incidental implementation differences.
+Both share the same NeuralForecaster class with a `cell` argument so the only
+difference between the LSTM and the GRU run is the layer type -- that way the
+comparison in the report is fair.
 
-Input representation
---------------------
-The history ``x_t`` is a window of the ``lookback`` most recent (scaled)
-traffic values for the area, shaped ``(lookback, 1)``. The network outputs a
-single scalar -- the one-step-ahead prediction ``x_(t+1)`` -- which is then
-mapped back to original traffic units with the fitted scaler.
-
-Architecture
-------------
-``Input -> [recurrent layer(s)] -> Dropout -> Dense(1)``. With ``layers > 1``
-the intermediate recurrent layers return full sequences and feed the next
-layer. Optimisation uses Adam on the mean-squared-error loss with
-early stopping on a chronological validation split.
-
-* **LSTM** (Long Short-Term Memory) -- gated cell with an explicit cell state;
-  input/forget/output gates let it retain information over long lags.
-* **GRU** (Gated Recurrent Unit) -- a lighter gated cell (reset/update gates,
-  no separate cell state); fewer parameters, usually faster to train.
+Input: a window of `lookback` past scaled values, shape (lookback, 1).
+Output: one scalar (the next value). I un-scale it before returning.
+Architecture: Input -> LSTM/GRU -> Dropout -> Dense(1).
+Trained with Adam + MSE + early stopping on the val split.
 """
 from __future__ import annotations
 
@@ -35,7 +20,7 @@ from .base import ForecastResult
 
 
 class NeuralForecaster:
-    """Configurable recurrent forecaster (LSTM or GRU)."""
+    """LSTM or GRU forecaster (cell type set in __init__)."""
 
     def __init__(
         self,
@@ -67,7 +52,7 @@ class NeuralForecaster:
 
     # ------------------------------------------------------------------
     def build(self, input_shape: tuple[int, int]):
-        """Construct and compile the Keras model for the given input shape."""
+        """Build the Keras model: Input -> LSTM/GRU -> Dropout -> Dense(1)."""
         from tensorflow import keras
 
         set_global_seed()
@@ -96,7 +81,7 @@ class NeuralForecaster:
 
     # ------------------------------------------------------------------
     def fit_predict(self, data: ForecastData) -> ForecastResult:
-        """Train on the train/val windows and predict the held-out test week."""
+        """Train on the windows and predict the 16-22 Dec test week."""
         from tensorflow import keras
 
         if self.model_ is None:

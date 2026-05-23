@@ -1,20 +1,9 @@
-"""Preprocessing for the forecasting models (Task 3).
+"""Get one area's series ready for the LSTM/GRU models.
 
-Turns a single area's 10-minute traffic series into model-ready tensors:
-
-* **Train / validation / test split** -- strictly chronological. The test
-  window (16-22 December) is held out and *never* used for fitting or for
-  scaler calibration, satisfying the assignment's leakage constraint.
-* **Normalisation** -- the scaler is fitted on the training span only and then
-  applied to the whole series. Three options are supported (min-max, standard,
-  log-min-max); traffic is non-negative and heavily right-skewed, so
-  ``log-minmax`` (log1p followed by min-max) is often the most effective.
-* **Supervised windowing** -- a sliding window of ``lookback`` past values is
-  used as the input history ``x_t`` and the next value as the one-step-ahead
-  target ``x_(t+1)``. Test windows are allowed to draw their input history
-  from the final ``lookback`` observations of the training span (these are
-  past *actuals*, which is permitted), so the model can predict the very first
-  test timestamp.
+Steps:
+  1. Split into train / validation / test by date (test = 16-22 Dec, held out).
+  2. Scale (default min-max) -- fit only on the training part, no leakage.
+  3. Slide a window of `lookback` past values to make supervised (X, y) pairs.
 """
 from __future__ import annotations
 
@@ -31,11 +20,8 @@ from .config import CONFIG
 # Scaling
 # ---------------------------------------------------------------------------
 class Scaler:
-    """Unified 1-D scaler supporting min-max, standard and log-min-max modes.
-
-    ``log-minmax`` applies ``log1p`` before min-max scaling, which compresses
-    the long right tail of the traffic distribution and tends to stabilise
-    neural-network training.
+    """Simple 1-D scaler. Supports min-max (default), standard and
+    log-minmax (log first, then min-max) for the heavy-tailed traffic data.
     """
 
     def __init__(self, kind: str = "minmax") -> None:
@@ -83,11 +69,8 @@ def test_window_mask(index: pd.DatetimeIndex) -> np.ndarray:
 
 
 def train_test_split_series(series: pd.Series) -> tuple[pd.Series, pd.Series]:
-    """Split a full area series into (train, test) at the test-week boundary.
-
-    ``train`` is everything strictly before 16 December; ``test`` is the
-    16-22 December week. Returned in original (un-scaled) units -- this is the
-    form the SARIMA model consumes directly.
+    """Cut the series into train (everything before 16 Dec) and test
+    (16-22 Dec). Used by SARIMA which works on the raw values.
     """
     mask = test_window_mask(series.index)
     return series[~mask].copy(), series[mask].copy()
@@ -97,11 +80,8 @@ def train_test_split_series(series: pd.Series) -> tuple[pd.Series, pd.Series]:
 # Supervised windowing for the neural models
 # ---------------------------------------------------------------------------
 def make_windows(values: np.ndarray, lookback: int) -> tuple[np.ndarray, np.ndarray]:
-    """Slice a 1-D array into supervised (X, y) one-step-ahead windows.
-
-    For an array of length ``T`` returns ``X`` of shape
-    ``(T - lookback, lookback)`` and ``y`` of shape ``(T - lookback,)``; window
-    ``k`` predicts the value immediately after its ``lookback`` inputs.
+    """Slide a window over the series to make supervised pairs:
+    X[k] = the last `lookback` values, y[k] = the next value.
     """
     values = np.asarray(values, dtype="float32")
     if len(values) <= lookback:
@@ -118,7 +98,7 @@ def make_windows(values: np.ndarray, lookback: int) -> tuple[np.ndarray, np.ndar
 
 @dataclass
 class ForecastData:
-    """Container holding everything needed to train and evaluate one area."""
+    """Bundle of arrays we hand to a neural model (train/val/test + scaler)."""
 
     square_id: int
     lookback: int
@@ -149,15 +129,8 @@ def prepare_forecasting_data(
     val_fraction: float | None = None,
     scaler_kind: str | None = None,
 ) -> ForecastData:
-    """Build train/val/test tensors for the neural models from one area series.
-
-    Parameters
-    ----------
-    series : full traffic series for one area (datetime index, 10-min steps).
-    lookback : input history length; defaults to ``config.yaml`` value.
-    val_fraction : fraction of the *training windows* (most recent, contiguous)
-        used for early-stopping validation.
-    scaler_kind : 'minmax' | 'standard' | 'log-minmax'.
+    """Take one area's series and return train/val/test windows ready to feed
+    a Keras model. Validation = the last `val_fraction` of training windows.
     """
     lookback = lookback or CONFIG.forecast["lookback"]
     val_fraction = (

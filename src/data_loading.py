@@ -1,28 +1,9 @@
-"""Task 1 -- Data Handling & Memory Management.
+"""Task 1: load and process the 19 GB Milan dataset without running out of RAM.
 
-The raw Telecom Italia Milan dataset is delivered as ~61 daily tab-separated
-text files (one per day, Nov-Dec 2013), each roughly 300-360 MB, ~19 GB in
-total. Loading all of it into memory at once with default pandas dtypes is
-infeasible on a typical laptop. This module implements the memory-efficient
-strategy used in the project:
-
-1. **Stream file-by-file.** Each daily file is processed independently and
-   never more than one day is held in RAM at a time.
-2. **Read only the 3 relevant columns** (Square id, Time interval, Internet
-   traffic activity) via ``usecols`` -- the SMS/Call/country columns are
-   skipped entirely, avoiding ~60% of the I/O and memory cost.
-3. **Downcast dtypes on read.** ``Square id`` -> uint16, ``Internet`` ->
-   float32, timestamp parsed from epoch-ms to datetime64. This roughly halves
-   memory versus the int64/float64 defaults.
-4. **Aggregate immediately.** Each file contains one row per
-   (square, time, country); we sum Internet activity over country codes so the
-   per-day result collapses to one value per (square, time interval).
-5. **Persist as Parquet.** The consolidated traffic matrix is written to a
-   compressed columnar Parquet file, which is far smaller and faster to reload
-   than CSV/TSV.
-
-The functions also expose *before/after* memory measurements so the report can
-quantify the optimisation (Task 1.III).
+Trick is to stream the daily files one at a time, only read the 3 columns we
+need (square_id, time, internet), downcast the dtypes, and aggregate country
+codes immediately. The wide matrix is then saved as Parquet for fast reloads
+in Tasks 2 and 3.
 """
 from __future__ import annotations
 
@@ -53,11 +34,7 @@ RAW_COLUMN_NAMES = [
 # File discovery
 # ---------------------------------------------------------------------------
 def discover_raw_files(raw_dir: Path | None = None) -> list[Path]:
-    """Return a sorted list of raw daily ``.txt`` files under ``raw_dir``.
-
-    Searches recursively so it works whether the user extracted the Dataverse
-    archive flat or into sub-folders.
-    """
+    """Find all the daily .txt files inside data/raw/telecom (sorted)."""
     raw_dir = Path(raw_dir) if raw_dir else CONFIG.raw_telecom
     files = sorted(p for p in raw_dir.rglob("*.txt") if p.is_file())
     if not files:
@@ -80,20 +57,13 @@ def dataframe_memory(df: pd.DataFrame) -> int:
 
 
 def load_day_naive(path: Path) -> pd.DataFrame:
-    """Load one daily file with pandas *defaults* -- the un-optimised baseline.
-
-    Reads every column with default dtypes (int64/float64/object). Used only to
-    demonstrate the 'before optimisation' memory figure for the report.
-    """
+    """Load a daily file with pandas defaults -- used only to compare memory."""
     return pd.read_csv(path, sep="\t", header=None, names=RAW_COLUMN_NAMES)
 
 
 def load_day_optimised(path: Path) -> pd.DataFrame:
-    """Load one daily file with the memory-optimised strategy.
-
-    Reads only the 3 needed columns, downcasts dtypes, and aggregates Internet
-    traffic over country codes. Returns columns ``[square_id, timestamp,
-    internet]`` with one row per (square, 10-min interval).
+    """Load one daily file the memory-friendly way: 3 columns, downcasted,
+    country codes summed. Returns one row per (square, 10-min interval).
     """
     cfg = CONFIG.dataset
     usecols = [cfg["col_square_id"], cfg["col_time"], cfg["col_internet"]]
@@ -123,11 +93,8 @@ def load_day_optimised(path: Path) -> pd.DataFrame:
 
 
 def memory_comparison(sample_file: Path | None = None) -> pd.DataFrame:
-    """Quantify the memory optimisation on a single sample daily file.
-
-    Returns a small DataFrame (the 'before vs after' evidence for Task 1.III)
-    comparing the naive full-column int64/float64 load against the optimised
-    3-column downcast-and-aggregate load.
+    """Compare the naive vs optimised load on one file -- this is the
+    before/after evidence used in the Task 1 section of the report.
     """
     sample_file = Path(sample_file) if sample_file else discover_raw_files()[0]
     print(f"Memory comparison on sample file: {sample_file.name}")
@@ -163,19 +130,11 @@ def build_traffic_matrix(
     raw_files: Iterable[Path] | None = None,
     save: bool = True,
 ) -> pd.DataFrame:
-    """Stream every daily file and build the consolidated traffic matrix.
+    """Loop over every daily file and stitch them into one wide matrix
+    (rows = 10-min timestamps, columns = square_id, values = traffic).
 
-    The result is a *wide* matrix: rows indexed by 10-minute ``timestamp``,
-    columns are ``square_id`` (0..N), values are total Internet traffic as
-    float32. With the full 100x100 grid over two months this is roughly
-    8,784 x 10,000 float32 == ~0.35 GB, which fits comfortably in RAM even
-    though the raw text is ~19 GB on disk -- the streaming-and-aggregate design
-    is what makes this possible.
-
-    Parameters
-    ----------
-    raw_files : iterable of paths; defaults to :func:`discover_raw_files`.
-    save : when True, also writes ``traffic_matrix.parquet`` to data/processed.
+    With 10,000 areas x 8,784 intervals as float32 this fits in ~350 MB of
+    RAM even though the raw text is ~19 GB. Saves the matrix as Parquet.
     """
     files = list(raw_files) if raw_files is not None else discover_raw_files()
     print(f"Consolidating {len(files)} daily files into the traffic matrix...")
@@ -237,7 +196,9 @@ def load_traffic_matrix() -> pd.DataFrame:
 # Derived aggregates (used by Task 2 / Task 3)
 # ---------------------------------------------------------------------------
 def compute_area_totals(matrix: pd.DataFrame, save: bool = True) -> pd.Series:
-    """Total two-month traffic per area -- the 10,000 samples for the Task 2 PDF."""
+    """Sum each area's traffic over the 2 months -- gives 10,000 values for
+    the PDF plot in Task 2.
+    """
     totals = matrix.sum(axis=0)
     totals.name = "total_traffic"
     totals.index.name = "square_id"
@@ -261,12 +222,8 @@ def get_area_series(matrix: pd.DataFrame, square_id: int) -> pd.Series:
 
 
 def load_sample_series() -> dict[str, pd.Series]:
-    """Load the three target-area series from the committed reproducibility sample.
-
-    ``data/sample/target_area_series.csv`` is a small (<0.5 MB) extract of the
-    three target areas, kept under version control so that Task 3 can be
-    reproduced *without* the 20 GB raw download. Returns a mapping
-    ``{label: series}`` with the same labels as :func:`resolve_target_areas`.
+    """Load the 3 area series from data/sample/ -- lets Task 3 run without
+    needing the 20 GB raw download.
     """
     path = PROJECT_ROOT / "data" / "sample" / "target_area_series.csv"
     if not path.exists():
@@ -290,15 +247,10 @@ def load_sample_series() -> dict[str, pd.Series]:
 
 
 def resolve_target_areas(matrix: pd.DataFrame) -> dict[str, int]:
-    """Resolve the three target areas required by Task 2.II / Task 3.
+    """Pick the 3 areas the assignment asks for: the busiest one + 4159 + 4556.
 
-    Returns a dict mapping a human label to a square id: ``highest`` (the area
-    with the greatest two-month traffic) and the two fixed ids 4159 and 4556.
-
-    On the full 10,000-area dataset the fixed ids always exist. When run on a
-    reduced grid (e.g. the synthetic sample) a missing fixed id is replaced by
-    a representative substitute drawn from a different traffic rank, with a
-    clear warning -- so the pipeline still runs end-to-end for testing.
+    If 4159/4556 are missing (only happens on a small synthetic grid), grab
+    sensible replacements so the rest of the pipeline still runs.
     """
     totals = matrix.sum(axis=0)
     highest = int(totals.idxmax())

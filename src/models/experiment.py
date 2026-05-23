@@ -1,12 +1,10 @@
-"""Hyper-parameter experimentation (Task 3 -- Experimentation & Tuning).
+"""Hyper-parameter tuning helpers (Task 3).
 
-The assignment requires a *systematic*, documented tuning process. This module
-runs a small grid search for the neural models and a guided order comparison
-for SARIMA, logging every trial so the report can show the reasoning behind
-each parameter choice.
+run_neural_experiments  -> grid search over (lookback, units), scored on the
+                           validation split (not the test week).
+run_sarima_experiments  -> tries a few (p, d, q) orders, ranks by AIC.
 
-For the neural sweep, each candidate is scored on a held-out **validation**
-split (never the December test week), so model selection stays honest.
+Both write CSV logs into experiments/.
 """
 from __future__ import annotations
 
@@ -34,11 +32,8 @@ def run_neural_experiments(
     scaler_kind: str | None = None,
     save_name: str | None = None,
 ) -> pd.DataFrame:
-    """Grid-search ``(lookback, units)`` for a recurrent model on one area.
-
-    Each configuration is trained with early stopping and scored on the
-    validation split. Returns a DataFrame sorted by validation RMSE (best
-    first); the same table is saved to the experiments folder.
+    """Try every (lookback, units) combo and score it on the validation set.
+    Returns the results sorted by val RMSE (best first).
     """
     lookback_grid = lookback_grid or CONFIG.experiment["lookback_grid"]
     units_grid = units_grid or CONFIG.experiment["units_grid"]

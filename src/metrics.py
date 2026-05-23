@@ -1,25 +1,11 @@
-"""Forecasting evaluation metrics (Task 3.III).
+"""Evaluation metrics for Task 3.
 
-Three metrics are required by the assignment:
+MAE  = (1/n) * sum |y - yhat|             -- average error, same units as y
+RMSE = sqrt((1/n) * sum (y - yhat)^2)     -- penalises big errors more
+MAPE = (100/n) * sum |y - yhat| / |y|     -- a percentage, comparable across areas
 
-* **MAE  -- Mean Absolute Error**
-      MAE = (1/n) * sum |y_i - yhat_i|
-  Same unit as the traffic signal; robust to outliers; easy to interpret as
-  the "average size of the error".
-
-* **RMSE -- Root Mean Squared Error**
-      RMSE = sqrt( (1/n) * sum (y_i - yhat_i)^2 )
-  Also in the original unit, but squares the errors before averaging, so it
-  penalises large mistakes more heavily than MAE. RMSE >= MAE always; a large
-  gap between them indicates a few big errors.
-
-* **MAPE -- Mean Absolute Percentage Error**
-      MAPE = (100/n) * sum |y_i - yhat_i| / |y_i|
-  Scale-free (a percentage), which makes it comparable across the three areas
-  even though they have very different traffic volumes. Its weakness is
-  instability when y_i -> 0 (night-time troughs); we therefore guard the
-  denominator with a small epsilon and additionally report the number of
-  points excluded, so the figure is not dominated by near-zero actuals.
+MAPE is unstable near y=0 so I clip the denominator with a small epsilon and
+also report sMAPE as a sanity check.
 """
 from __future__ import annotations
 
@@ -59,20 +45,15 @@ def mape(y_true, y_pred, eps: float = _EPS) -> float:
 
 
 def smape(y_true, y_pred, eps: float = _EPS) -> float:
-    """Symmetric MAPE (%) -- bounded in [0, 200], well-behaved near zero.
-
-    Reported as a supplementary, more stable companion to MAPE.
-    """
+    """Symmetric MAPE -- nicer around zero than MAPE. Bounded in [0, 200]."""
     yt, yp = _align(y_true, y_pred)
     denom = np.maximum((np.abs(yt) + np.abs(yp)) / 2.0, eps)
     return float(np.mean(np.abs(yt - yp) / denom) * 100.0)
 
 
 def evaluate(y_true, y_pred, model_name: str | None = None) -> dict:
-    """Compute all metrics and return them as a dictionary.
-
-    Also records ``n`` and ``n_near_zero`` (actuals below 1.0) so the report
-    can disclose how trustworthy the MAPE figure is for a given area.
+    """Compute MAE/RMSE/MAPE/sMAPE and return them as a dict.
+    Also records n and how many actuals are near zero (warns about MAPE).
     """
     yt, yp = _align(y_true, y_pred)
     result = {
@@ -89,7 +70,7 @@ def evaluate(y_true, y_pred, model_name: str | None = None) -> dict:
 
 
 def metrics_table(results: list[dict], index_col: str = "model") -> pd.DataFrame:
-    """Assemble a list of :func:`evaluate` dicts into a tidy results table."""
+    """Turn a list of evaluate() dicts into a DataFrame."""
     df = pd.DataFrame(results)
     if index_col in df.columns:
         df = df.set_index(index_col)

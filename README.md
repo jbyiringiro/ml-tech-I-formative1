@@ -72,11 +72,11 @@ assignment's documented correction — country code is the 3rd field):
 
 | idx  | field                     | used?         |
 | ---- | ------------------------- | ------------- |
-| 0    | Square id                 | ✅            |
-| 1    | Time interval (Unix ms)   | ✅            |
-| 2    | Country code              | (summed over) |
-| 3–6 | SMS-in/out, Call-in/out   | ❌ ignored    |
-| 7    | Internet traffic activity | ✅            |
+| 0    | Square id                 | yes           |
+| 1    | Time interval (Unix ms)   | yes           |
+| 2    | Country code              | summed over   |
+| 3-6  | SMS-in/out, Call-in/out   | ignored       |
+| 7    | Internet traffic activity | yes           |
 
 ### 3.2 Milano grid
 

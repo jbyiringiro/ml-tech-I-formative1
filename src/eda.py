@@ -1,10 +1,7 @@
-"""Task 2 -- Exploratory Data Analysis & Data Characterisation.
-
-Every routine returns a matplotlib ``Figure`` (and, where relevant, the
-numerical results) so that notebooks and the ``run_task2`` script can both
-display and persist them. The functions cover all seven required analyses:
-traffic PDF, multi-area time series, stationarity (rolling stats + ADF),
-seasonal decomposition, ACF/PACF, a spatial heatmap, and anomaly detection.
+"""Task 2 EDA functions. Each function returns a matplotlib Figure so the
+notebooks can show it and the run_task2 script can save it. Covers all 7
+analyses the assignment asks for (PDF, time series, stationarity, STL,
+ACF/PACF, heatmap, anomalies).
 """
 from __future__ import annotations
 
@@ -27,11 +24,8 @@ INTERVALS_PER_DAY = CONFIG.dataset["intervals_per_day"]   # 144
 # Task 2.I -- Probability density function of total per-area traffic
 # ---------------------------------------------------------------------------
 def plot_traffic_pdf(area_totals: pd.Series):
-    """Plot the PDF of total two-month traffic across all areas.
-
-    Two panels: a linear-axis histogram+KDE and a log-axis version, because
-    urban mobile traffic is typically heavy-tailed (approximately log-normal):
-    a few central business areas dominate while most peripheral cells are low.
+    """Histogram of total traffic per area, on linear and log axes
+    (log axis makes the heavy-tailed shape easier to read).
     """
     totals = area_totals.to_numpy(dtype="float64")
     totals = totals[np.isfinite(totals)]
@@ -78,11 +72,8 @@ def traffic_distribution_summary(area_totals: pd.Series) -> pd.DataFrame:
 # Task 2.II -- Time series of three areas over the first two weeks
 # ---------------------------------------------------------------------------
 def plot_area_timeseries(matrix: pd.DataFrame, areas: dict[str, int]):
-    """Overlay the traffic time series of the three target areas.
-
-    ``areas`` maps a label to a square id (see
-    :func:`data_loading.resolve_target_areas`). The window is the first two
-    weeks of the study period, as required by Task 2.II.
+    """Plot the first two weeks of traffic for the 3 target areas on the
+    same axes. `areas` is a {label: square_id} dict.
     """
     start = pd.Timestamp(CONFIG.dates["first_two_weeks_start"])
     end = pd.Timestamp(CONFIG.dates["first_two_weeks_end"]) + pd.Timedelta(days=1)
@@ -109,10 +100,8 @@ def plot_area_timeseries(matrix: pd.DataFrame, areas: dict[str, int]):
 # Task 2.III -- Stationarity: rolling statistics + Augmented Dickey-Fuller
 # ---------------------------------------------------------------------------
 def adf_test(series: pd.Series, name: str = "series") -> dict:
-    """Run the Augmented Dickey-Fuller test and return a structured result.
-
-    Null hypothesis: the series has a unit root (is non-stationary). A p-value
-    below 0.05 lets us reject it and treat the series as (weakly) stationary.
+    """Run the Augmented Dickey-Fuller test for stationarity.
+    H0 = the series has a unit root (non-stationary). If p < 0.05 we reject H0.
     """
     clean = series.dropna().to_numpy(dtype="float64")
     stat, pvalue, used_lag, n_obs, crit, _ = adfuller(clean, autolag="AIC")
@@ -130,10 +119,8 @@ def adf_test(series: pd.Series, name: str = "series") -> dict:
 
 
 def plot_stationarity(series: pd.Series, window: int | None = None):
-    """Plot the series with rolling mean and rolling std (stationarity check).
-
-    A stationary series has a roughly constant rolling mean and variance; a
-    visible trend or changing spread in these curves signals non-stationarity.
+    """Plot the series with its rolling mean and rolling std (window = 1 day).
+    A roughly flat mean/std means the series looks stationary.
     """
     window = window or INTERVALS_PER_DAY
     roll_mean = series.rolling(window).mean()
@@ -158,11 +145,8 @@ def plot_stationarity(series: pd.Series, window: int | None = None):
 # Task 2.IV -- Seasonal decomposition (trend / seasonal / residual)
 # ---------------------------------------------------------------------------
 def decompose_series(series: pd.Series, period: int | None = None):
-    """STL-decompose a series into trend, seasonal and residual components.
-
-    STL (Seasonal-Trend decomposition using LOESS) is robust to outliers and
-    handles the strong daily cycle well. ``period`` defaults to 144 (one day
-    of 10-minute intervals).
+    """Break the series into trend + seasonal + residual using STL.
+    Period defaults to 144 (one day of 10-min intervals).
     """
     period = period or INTERVALS_PER_DAY
     clean = series.dropna().astype("float64")
@@ -189,11 +173,8 @@ def decompose_series(series: pd.Series, period: int | None = None):
 # Task 2.V -- Autocorrelation / partial autocorrelation
 # ---------------------------------------------------------------------------
 def plot_acf_pacf(series: pd.Series, lags: int | None = None):
-    """Plot ACF and PACF.
-
-    ACF lags default to two full days so the daily seasonal spikes (at lag 144
-    and 288) are visible; PACF uses fewer lags to keep the short-range
-    dependence structure readable.
+    """Plot ACF (2 days of lags) and PACF (60 lags). The ACF spikes at lag 144
+    and 288 are the daily seasonality.
     """
     lags = lags or 2 * INTERVALS_PER_DAY
     clean = series.dropna()
@@ -225,11 +206,8 @@ def infer_grid_size(area_totals: pd.Series) -> int:
 
 
 def plot_spatial_heatmap(area_totals: pd.Series, grid_size: int | None = None):
-    """Render total traffic as a 2-D heatmap over the city grid.
-
-    Square ids are assumed to enumerate a ``grid_size x grid_size`` lattice in
-    row-major order (id 1 -> row 0, col 0). Missing ids are shown as zero. The
-    grid size is inferred from the data unless given explicitly.
+    """Reshape the per-area totals into a 100x100 grid and show it as a
+    heatmap (linear + log). Useful for spotting the city-centre hotspot.
     """
     grid_size = grid_size or infer_grid_size(area_totals)
     n_cells = grid_size * grid_size
@@ -257,15 +235,9 @@ def plot_spatial_heatmap(area_totals: pd.Series, grid_size: int | None = None):
 # Task 2.VII -- Anomaly / outlier detection
 # ---------------------------------------------------------------------------
 def detect_anomalies(series: pd.Series, z_threshold: float = 4.0):
-    """Flag anomalies as deviations from the typical weekly-seasonal profile.
-
-    For each timestamp an *expected* value is taken from the median traffic at
-    the same (day-of-week, time-of-day) -- i.e. the recurring weekly pattern.
-    The residual (observed - expected) is scaled by a robust estimate (median
-    absolute deviation x 1.4826); points beyond ``z_threshold`` are flagged.
-    Unlike a rolling-window detector, this surfaces whole-day anomalies (public
-    holidays, mass events) because the holiday value is compared against a
-    *normal* day rather than against its own neighbourhood.
+    """Find anomalies by comparing each point to its (weekday, time-of-day)
+    median. Big relative deviations get flagged -- catches whole-day events
+    like Christmas that a rolling-window detector would miss.
     """
     s = series.dropna().astype("float64")
     idx = s.index

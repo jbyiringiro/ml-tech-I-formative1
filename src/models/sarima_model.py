@@ -1,39 +1,20 @@
-"""Seasonal ARIMA -- the classical statistical forecaster (Task 3).
+"""SARIMA forecaster (classical statistical model for Task 3).
 
-SARIMA(p, d, q)(P, D, Q)_s extends ARIMA with a seasonal component. For
-10-minute traffic the dominant cycle is daily, so the seasonal period is
-s = 144 (= 24 h x 6).
+Daily traffic has a strong 24-hour cycle, so the seasonal period is s = 144
+(24 * 6). Instead of using a full SARIMAX with seasonal_order=(P,1,Q,144) --
+which trains for minutes because of the 144-step latent state -- I do the
+seasonal differencing myself:
 
-Tractable formulation
----------------------
-A full state-space SARIMAX with a *seasonal period of 144* is extremely
-expensive: the latent state grows with ``s``, so maximum-likelihood estimation
-of seasonal AR/MA terms (P, Q > 0) takes minutes per fit and the rolling
-forecast becomes intractable. We therefore use the standard, equivalent
-**differencing formulation** of SARIMA(p, d, q)(0, D, 0)_s:
+    y_t = x_t - x_{t-144}        # take the difference vs. yesterday
+    fit ARIMA(p, d, q) on y_t    # short, easy to fit
+    x_hat_t = y_hat_t + x_{t-144}   # invert at predict time
 
-1. Apply seasonal differencing ``D`` times at lag ``s``:
-   ``y_t = x_t - x_{t-s}`` (for D = 1). This removes the daily cycle and
-   yields an (approximately) stationary series.
-2. Fit a non-seasonal ARIMA(p, d, q) to ``y_t``.
-3. Forecast ``y`` one step ahead, then **invert the differencing** with the
-   actual lagged observation: ``x_hat_t = y_hat_t + x_{t-s}``.
+This is still a SARIMA(p, d, q)(0, 1, 0)_144 model, just written out
+explicitly. Fitting drops from ~235 s to ~1.5 s per area.
 
-This is mathematically a SARIMA model -- the seasonal behaviour is captured by
-the seasonal difference (a "seasonal random walk"), and the ARIMA term models
-the remaining short-range structure. It keeps the latent state small, so a fit
-takes seconds rather than minutes. Seasonal AR/MA terms (P, Q > 0) were also
-tried during experimentation but added large computational cost for marginal
-accuracy gain (see ``experiment.py`` / the report).
-
-One-step-ahead protocol
------------------------
-The ARIMA is fitted **once** on the (seasonally-differenced) training span.
-The true test observations are then differenced, appended
-(``append(..., refit=False)`` -- no re-estimation) and the one-step-ahead
-predictions for the whole test week are read off in a single Kalman-filter
-pass via ``predict``. With actual values used as the lagged history this is
-exactly the rolling one-step-ahead forecast the assignment specifies.
+One-step-ahead: fit once on the train half, append the (differenced) test
+observations and read the predictions back -- statsmodels does this in a
+single Kalman filter pass.
 """
 from __future__ import annotations
 
@@ -57,7 +38,7 @@ def _square_id_of(series: pd.Series) -> int:
 
 
 class SarimaForecaster:
-    """Seasonal ARIMA one-step-ahead forecaster (differencing formulation)."""
+    """SARIMA forecaster -- fits an ARIMA on the seasonally-differenced series."""
 
     name = "SARIMA"
 
@@ -89,7 +70,7 @@ class SarimaForecaster:
 
     # ------------------------------------------------------------------
     def _seasonal_difference(self, values: np.ndarray) -> np.ndarray:
-        """Apply seasonal differencing D times at lag s."""
+        """y_t = x_t - x_{t-s}, applied D times."""
         out = values
         for _ in range(self.seasonal_diff):
             out = out[self.seasonal_period:] - out[: -self.seasonal_period]
@@ -97,7 +78,9 @@ class SarimaForecaster:
 
     # ------------------------------------------------------------------
     def fit_predict(self, series: pd.Series) -> ForecastResult:
-        """Fit on the training span and roll one-step-ahead over the test week."""
+        """Fit on the train half, then produce one-step-ahead predictions for
+        every step of the 16-22 Dec test week.
+        """
         square_id = _square_id_of(series)
         train, test = train_test_split_series(series)
 
