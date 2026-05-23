@@ -32,6 +32,7 @@ models_saved/
 report/report.md
 report/_report_for_pdf.html
 tools/export_pdf.py
+tools/build_notebooks.py
 
 # ---- OS / IDE ----
 .DS_Store
