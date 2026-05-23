@@ -1,9 +1,9 @@
 # Comparative Time Series Analysis and Forecasting of Mobile Network Traffic
 
-**Machine Learning Techniques I — Formative Assignment 1
+**Machine Learning Techniques I — Formative Assignment 1**
 
 **GitHub repository:** [https://github.com/jbyiringiro/ml-tech-I-formative1](https://github.com/jbyiringiro/ml-tech-I-formative1)
-**Demo Video:** 
+**Demo Video: [https://drive.google.com/file/d/1dRtSmwCBPSEulHKAT_zqKBbVDY789Vu-/view?usp=sharing](https://drive.google.com/file/d/1dRtSmwCBPSEulHKAT_zqKBbVDY789Vu-/view?usp=sharing)**
 
 ## Introduction
 
@@ -817,4 +817,5 @@ Science & Engineering*, vol. 9, no. 3, pp. 90–95, 2007; and M. L. Waskom,
 "seaborn: statistical data visualization," *Journal of Open Source Software*,
 vol. 6, no. 60, p. 3021, 2021.
 
-**GitHub repository:** [https://github.com/jbyiringiro/ml-tech-I-formative1](https://github.com/jbyiringiro/ml-tech-I-formative1) · **Video demonstration:** [https://drive.google.com/file/d/1dRtSmwCBPSEulHKAT_zqKBbVDY789Vu-/view?usp=sharing](https://drive.google.com/file/d/1dRtSmwCBPSEulHKAT_zqKBbVDY789Vu-/view?usp=sharing)
+**GitHub repository:** [https://github.com/jbyiringiro/ml-tech-I-formative1](https://github.com/jbyiringiro/ml-tech-I-formative1) 
+**Video demonstration:** [https://drive.google.com/file/d/1dRtSmwCBPSEulHKAT_zqKBbVDY789Vu-/view?usp=sharing](https://drive.google.com/file/d/1dRtSmwCBPSEulHKAT_zqKBbVDY789Vu-/view?usp=sharing)
