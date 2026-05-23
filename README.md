@@ -33,10 +33,9 @@ formative_1/
 │   ├── make_synthetic_data.py   # generate a runnable sample (no download needed)
 │   ├── run_task1.py / run_task2.py / run_task3.py
 ├── notebooks/              # one notebook per task (import `src`)
-├── tools/build_notebooks.py     # regenerates the notebooks
 ├── results/figures|tables/ # generated figures and tables
 ├── experiments/            # hyper-parameter experiment logs
-└── report/report.md        # the written report (draft)
+└── report/                 # final PDF report
 ```
 
 ## 2. Setup
@@ -127,7 +126,7 @@ metrics may vary by ~1 % due to CPU non-determinism in TensorFlow). Tasks 1–2
 still need the full dataset or the synthetic sample.
 
 Or work interactively with the notebooks (`notebooks/01..03`), which import the
-same `src` package. Regenerate them with `python tools/build_notebooks.py`.
+same `src` package.
 
 All outputs land in `results/figures/`, `results/tables/` and `experiments/`.
 
@@ -147,6 +146,6 @@ All outputs land in `results/figures/`, `results/tables/` and `experiments/`.
 
 ## 7. References
 
-See `report/report.md` (IEEE style). Primary dataset reference: G. Barlacchi
-*et al.*, "A multi-source dataset of urban life in the city of Milan and the
-Province of Trentino," *Scientific Data* 2, 150055 (2015).
+See the PDF report in `report/` (IEEE style). Primary dataset reference:
+G. Barlacchi *et al.*, "A multi-source dataset of urban life in the city of
+Milan and the Province of Trentino," *Scientific Data* 2, 150055 (2015).
