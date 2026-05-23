@@ -1,0 +1,4 @@
+,rows,columns,memory_bytes,memory_human
+"naive (8 cols, int64/float64)",4842625.0,8.0,309928132.0,295.57 MB
+"optimised (3 cols, downcast+agg)",1439982.0,3.0,20159880.0,19.23 MB
+reduction,,,,93.5% smaller

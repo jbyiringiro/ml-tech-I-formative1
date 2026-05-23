@@ -1,0 +1,5 @@
+| model   |   train_time_s |   predict_time_s | measured_over   |
+|:--------|---------------:|-----------------:|:----------------|
+| GRU     |         8.6360 |           0.2080 | mean of 3 areas |
+| LSTM    |         9.9520 |           0.1830 | mean of 3 areas |
+| SARIMA  |         1.4330 |           0.0310 | mean of 3 areas |
